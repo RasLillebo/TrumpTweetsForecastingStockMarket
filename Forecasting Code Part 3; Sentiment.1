@@ -1,0 +1,89 @@
+#Neural Network
+library(neuralnet)
+
+NNData_S = Total_df[c(1, 7:9)]
+NNData_S = na.exclude(NNData_S)
+#d_SPY <- diff(NNData_S$SPY.Adjusted)
+#d_NegS <- diff(NNData_S$Negative)
+#d_PosS <- diff(NNData_S$Positive)
+#d_NeuS <- diff(NNData_S$Neutral)
+#d_NNData_S <- data.frame(d_SPY, d_NegS, d_PosS, d_NeuS)
+d_NNData_S =NNData_S
+names(d_NNData_S) <- c("d_SPY", "d_NegS", "d_PosS", "d_NeuS")
+smp_size <- floor(0.75 * nrow(NNData_S))
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+maxmindf_S <- as.data.frame(lapply(d_NNData_S, normalize))
+
+## set the seed to make your partition reproducible
+set.seed(123)
+train_ind <- sample(seq_len(nrow(maxmindf_S)), size = smp_size)
+train_S <- maxmindf_S[train_ind, ]
+test_S <- maxmindf_S[-train_ind, ]
+
+set.seed(500)
+NN_S<- neuralnet(d_SPY~  d_NegS + d_PosS + d_NeuS, data=train_S, hidden=c(3,3), linear.output=FALSE, threshold=0.01, likelihood = TRUE)
+NN_S$result.matrix
+plot(NN_S)
+
+temp_test <- subset(test_S, select = c( "d_NegS", "d_PosS", "d_NeuS"))
+NN.results <- neuralnet::compute(NN_S, temp_test)
+results <- data.frame(actual = test_S$d_SPY, prediction = NN.results$net.result)
+head(results)
+
+#Accuracy
+SP.Adjusted = d_NNData_S$d_SPY
+predicted=results$prediction * abs(diff(range(SP.Adjusted))) + min(SP.Adjusted)
+actual=results$actual * abs(diff(range(SP.Adjusted))) + min(SP.Adjusted)
+comparison=data.frame(predicted,actual)
+deviation=((actual-predicted)/actual)
+comparison=data.frame(predicted,actual,deviation)
+accuracy=1-abs(mean(deviation))
+accuracy
+
+# Predict median value
+pr.nn <- neuralnet::compute(NN_S,test_S)
+pr.nn_ <- pr.nn$net.result*(max(d_NNData_S$d_SPY)-min(d_NNData_S$d_SPY))+min(d_NNData_S$d_SPY)
+test.r <- (test_S$d_SPY)*(max(d_NNData_S$d_SPY)-min(d_NNData_S$d_SPY))+min(d_NNData_S$d_SPY)
+MSE.nn <- sum((test.r - pr.nn_)^2)/nrow(test_S)
+
+# Compare MSE's
+print(paste(MSE.nn))
+
+############################################################################################
+library(rts)
+library(plyr)
+# Cross-validation NN
+set.seed(450)
+cv.error_S <- NULL
+k <- 10
+pbar <- create_progress_bar('text')
+pbar$init(k)
+for(i in 1:k){
+  train_ind <- sample(seq_len(nrow(maxmindf_S)), size = smp_size)
+  train.cv <- maxmindf_S[train_ind,]
+  test.cv <- maxmindf_S[-train_ind,]
+  nn <- neuralnet(d_SPY~ d_NegS + d_PosS + d_NeuS, data=train.cv,hidden=c(3,3),linear.output=T)
+  pr.nn <- compute(nn,test.cv)
+  pr.nn <- pr.nn$net.result*(max(d_NNData_S$d_SPY)-min(d_NNData_S$d_SPY))+min(d_NNData_S$d_SPY)
+  test.cv.r <- (test.cv$d_SPY)*(max(d_NNData_S$d_SPY)-min(d_NNData_S$d_SPY))+min(d_NNData_S$d_SPY)
+  cv.error_S[i] <- sum((test.cv.r - pr.nn)^2)/nrow(test.cv)
+  pbar$step()
+}
+
+
+#Plot the errors
+windows()
+par(mfrow=c(2, 1))
+boxplot(cv.error_S,xlab='MSE CV',col='cyan',
+        border='blue',names='CV error (MSE)',
+        main='CV error (MSE) for NN Sentiment',horizontal=TRUE)
+boxplot(cv.error_Q,xlab='MSE CV',col='cyan',
+        border='blue',names='CV error (MSE)',
+        main='CV error (MSE) for NN Quant',horizontal=TRUE)
+mean(cv.error_S)
+mean(cv.error_Q)
+
+
