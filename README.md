@@ -20,7 +20,9 @@ Such a model is more advanced than what I intend to showcase with this read, but
 
 ### Data
 If you want to use other tweets than Donald Trumps, here's a great installation guide for a Twitter API to help you in R: (Credits to Leah Wasser & Carson Farmer)
+
 Link: https://www.earthdatascience.org/courses/earth-analytics/get-data-using-apis/use-twitter-api-r/
+
 I will be using President Donald Trump’s twitter history from 1-11-2016, the month he was inaugurated, up until 01-04-2020. This data will thereafter be split into text- and
 activity-based data, and then tested separately. This is to further argue whether sentiment analysis or regular analysis of activity show proof of higher correlation. 
 
@@ -40,13 +42,14 @@ Furthermore, I use the ‘Created_at’ column to count the number of ‘tweets�
 - Negative: The negative sentiment score of the day
 - Neutral: The neutral sentiment score of the day.
 I will use S&P500 adjusted prices in both datasets, which therefore limits the days in the processed data to open market days. 
-## Analysis
+## Data Preparation
 First we need to install and load the packages. I like to use 'lapply', but you can just as easily use the simpler 'library()' function, for all the entries in the "Packages" vector defined below:
 ```
 Packages <- c("dplyr", "readr", "zoo",  "SentimentAnalysis", "gridExtra", "tidytext", "tidyr", "ggplot2", "quantmod")
+#install.packages(Packages)
 lapply(Packages, library, character.only=TRUE)
 ```
-#### Preparing the data
+#### Loading and sorting into data.frames
 Load the data into the directory and begin formatting the columns. I prefer to use the 'mutate' function, but you can also split the function into two lines instead.
 We then aggregate the data into daily frequency, which will aid us in the later analysis:
 ```
@@ -65,6 +68,102 @@ Aggregate      <- aggregate(. ~created_at, data=TTweets1, sum, na.rm=TRUE)
 Freq_Tweet      <- table(TTweets1$created_at)
 DTrump <- cbind(Aggregate, Freq_Tweet)
 DTrump[, c(4)] <- NULL```
+```
+Furthermore, we need to gather the stock market data using the 'quantmod' package loaded above. 
+To make thing simple, I choose the S&P500, but you can easily adjust the code parameter 'SPY' to any ticker you want.
+```
+getSymbols("SPY", from="2016-1-11", to="2020-04-1", by="days")
+Indices <- as.data.frame(na.omit(cbind(SPY$SPY.Adjusted)))
+Indices_names <- rownames(Indices)
+Indices_Time <- as.Date(Indices_names)
+Indices$created_at <- Indices_Time
+
+#Create index returns
+SPY_ret <- as.data.frame(diff(Indices$SPY.Adjusted)/Indices$SPY.Adjusted[-length(Indices$SPY.Adjusted)])
+Index_Ret <- cbind(Indices$created_at[-1], SPY_ret$Returns)
+names(Index_Ret) <- c("created_at", "SPY_ret")
+
+#Create data frames
+df_Indices_DT <- left_join(Indices, DTrump, by="created_at")
+df_Indices_DT <- na.omit(df_Indices_DT)
+df_Quant <- df_Indices_DT
+```
+#### Sentiment data 
+With the data sorted into the two respectable data frames, we can now begin extracting the sentiment scores from our data. This may look daunting, but we will take it step-by-step:
+
+Loading the dataframe for the sentiment:
+```
+tweet_data <- read_delim("C:/Users/PC/Github/Data/TrumpData.csv", 
+                      ";", escape_double = FALSE, trim_ws = TRUE)
+tweet_data[6] <- NULL #Remove the 'is_string' variable, as it is not needed.
+tweet_data$created_at = as.Date(tweet_data$created_at, format="%m-%d-%Y")  #Format date column
+```
+When the data has been loaded we can start cleaning the text. This is done by searching for specific non-emotional or non-expressive words, used in everyday language, and remove these from the data. So that we are left with words that are primarily interpreted as negative or positive. Furhtermore, we add some stop words specific to our case, namely 'trump', 'realdonaldtrump' (his user name on Twitter) and URL-specific words, that have no effect here (https, amp).
+```
+#Clean text
+DT_Tweets <- tweet_data  %>% mutate(tweet_text = gsub("http://*|https://*)", "",Text),
+                                    month = as.yearmon(created_at))
+data("stop_words")  #Load the stop word library
+
+#Get a list of words
+DT_Tweets_Clean <- DT_Tweets %>%
+  dplyr::select(tweet_text, month) %>%
+  unnest_tokens(word, tweet_text) %>%
+  anti_join(stop_words) %>%
+  filter(!word %in% c("rt", "t.co", "trump", "realdonaldtrump", "https", "amp"))
+ ```
+We can now plot to see which words are most used for Donald Trump:
+```
+windows()
+DT_Tweets_Clean %>%
+  count(word, sort = TRUE) %>%
+  top_n(15) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+  labs(x = "Count",
+       y = "Unique words",
+       title = "Count of unique words found in 4 year's worth of tweets")
+```
+We can now rate the words ,using 'Bing's and QDAP's sentiment dictionaries, in negative and positive interpretations. This step can take a while depending of computational power of your hardware.
+```
+bing_sentiment <- DT_Tweets_Clean %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, month, sort = TRUE) %>%
+  group_by(sentiment) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  group_by(month, sentiment) %>%
+  top_n(n = 5, wt = n) %>%
+  #Create a date & sentiment column for sorting
+  mutate(sent_date = paste0(month, " - ", sentiment)) %>%
+  arrange(month, sentiment, n)
+
+bing_sentiment$sent_date <- factor(bing_sentiment$sent_date,
+                                   levels = unique(bing_sentiment$sent_date))
+
+sentiment <- analyzeSentiment(enc2native(DT_Tweets$Text))
+#Extract dictionary-based sentiment according to the QDAP dictionary
+sentiment2 <- sentiment$SentimentQDAP
+#View sentiment direction (i.e. positive, neutral and negative)
+sentiment3 <- convertToDirection(sentiment$SentimentQDAP)
+
+bing_DT = DT_Tweets_Clean %>% inner_join(get_sentiments("bing")) %>% count(word, sentiment, sort=TRUE)  %>% ungroup()
+windows()
+bing_DT %>% group_by(sentiment) %>% 
+  top_n(10) %>% ungroup() %>% 
+  mutate(word=reorder(word, n)) %>% 
+  ggplot(aes(word, n, fill=sentiment)) +
+  geom_col(show.legend =FALSE) + facet_wrap(~sentiment, scales="free_y") +
+  labs(title="Words by Twitter account @realDonaldTrump", 
+       y = "Contribution to sentiment",
+       x = NULL) + coord_flip() + theme_bw()
+```
+Using the ggplot-package, we can play around with plots and diagrams of our choice: (codes for the plots are listed in the file "Forecasting code part 1.2; Intro)
+
+When working with time series data, we want to make sure it is stationary. We therefore difference the data and normalize it using the simple function:
 ```
 
 ### Sources:
