@@ -127,6 +127,8 @@ DT_Tweets_Clean %>%
        y = "Unique words",
        title = "Count of unique words found in 4 year's worth of tweets")
 ```
+![TSPic1](https://user-images.githubusercontent.com/69420936/91894474-074da500-ec96-11ea-92b2-9e19df0e22f8.png)
+
 We can now rate the words ,using 'Bing's and QDAP's sentiment dictionaries, in negative and positive interpretations. This step can take a while depending of computational power of your hardware.
 ```
 bing_sentiment <- DT_Tweets_Clean %>%
@@ -161,10 +163,14 @@ bing_DT %>% group_by(sentiment) %>%
        y = "Contribution to sentiment",
        x = NULL) + coord_flip() + theme_bw()
 ```
+![TSPic2](https://user-images.githubusercontent.com/69420936/91894477-09176880-ec96-11ea-83ca-515f05a09b8e.png)
+
 Using the ggplot-package, we can play around with plots and diagrams of our choice: (codes for the plots are listed in the file "Forecasting code part 1.2; Intro)
 
+![TSPic3](https://user-images.githubusercontent.com/69420936/91894482-0a489580-ec96-11ea-97b9-3aca52b89bcd.png)
+
+
 When working with time series data, we want to make sure it is stationary. We therefore difference the data and normalize it using the simple function:
-```
 
 ### Sources:
 
