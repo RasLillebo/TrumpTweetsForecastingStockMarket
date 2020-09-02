@@ -182,7 +182,7 @@ Total_df <- na.omit(Total_df)
 
 #### Data: Quantitatives
 
-When working with time series data, we want to make sure it is stationary. We therefore difference the data and normalize it using the simple function:
+When working with time series data, we want to make sure it is stationary. We therefore difference the data and normalize it.
 ```
 # Remove 'created_at' column. It will not be of use later on.
 NNData_Q = Total_df[c(1, 3:5)]
@@ -201,7 +201,7 @@ normalize <- function(x) {
 }
 maxmindf_Q <- as.data.frame(lapply(d_NNData_Q, normalize))
 ```
-### Analysis
+## Analysis
 #### Neural Network: Quantitatives
 For our analysis, we want to split our data into test and training sets. I use 75% of the data for training and 25% for testing.
 
