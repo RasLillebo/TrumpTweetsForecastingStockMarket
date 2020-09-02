@@ -169,8 +169,36 @@ Using the ggplot-package, we can play around with plots and diagrams of our choi
 
 ![TSPic3](https://user-images.githubusercontent.com/69420936/91894482-0a489580-ec96-11ea-97b9-3aca52b89bcd.png)
 
+#### Quantitative Data
 
 When working with time series data, we want to make sure it is stationary. We therefore difference the data and normalize it using the simple function:
+```
+# Remove 'created_at' column. It will not be of use later on.
+NNData_Q = Total_df[c(1, 3:5)]
+# Difference the data
+d_NNData_Q =  NNData_Q %>% mutate(d_SPY = NNData_Q$SPY.Adjusted-lag(NNData_Q$SPY.Adjusted),
+                                  d_Ret = NNData_Q$Retweet_count-lag(NNData_Q$Retweet_count),
+                                  d_Fav = NNData_Q$Favorite_count-lag(NNData_Q$Favorite_count),
+                                  d_Freq = NNData_Q$Frequency-lag(NNData_Q$Frequency))
+
+d_NNData_Q[,1:4] <- NULL #Remove the non-differenced data. It will not be of use later on.
+d_NNData_Q = as.data.frame(na.exclude(d_NNData_Q)) #Exclude any na's (The first row of differenced columns will always be NA)
+
+# Normalize the data
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+maxmindf_Q <- as.data.frame(lapply(d_NNData_Q, normalize))
+```
+We then want to split our data into test and training sets. I use 75% of the data for training and 25% for testing.
+
+```
+smp_size <- floor(0.75 * nrow(NNN))
+train_ind <- sample(seq_len(nrow(maxmindf_Q)), size = smp_size)
+train_Q <- maxmindf_Q[train_ind, ]
+test_Q <- maxmindf_Q[-train_ind, ]
+```
+
 
 ### Sources:
 
