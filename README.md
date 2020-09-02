@@ -1,5 +1,6 @@
 # Forecasting The Stock Market Using Tweets (Using OLS, Neural Network & Random Forest)
 ### Motivation: A brief introduction to sentiment analysis.
+(Codes to all plots and diagrams will be present in the file "TTFSMPLOTS.R"
 Since the election of US president Trump, it has become increasingly evident how social media, and in particular twitter, has become a factor financial markets has to take into account.
 This correlation has not only shifted the models on Wall Street to also incorporate social media but is also evidence of an increasingly integrated and convoluted environment navigate when forecasting. For example; Merrill Lynch started
 modeling their investments after President Donald Trump’s twitter account activity, as seen below. And Bloomberg.com now has a tracker for mentions of the financial markets, also on Donald Trump's twitter account.
@@ -49,7 +50,7 @@ Packages <- c("dplyr", "readr", "zoo",  "SentimentAnalysis", "gridExtra", "tidyt
 #install.packages(Packages)
 lapply(Packages, library, character.only=TRUE)
 ```
-#### Loading and sorting into data.frames
+#### Data: Loading and sorting into data.frames
 Load the data into the directory and begin formatting the columns. I prefer to use the 'mutate' function, but you can also split the function into two lines instead.
 We then aggregate the data into daily frequency, which will aid us in the later analysis:
 ```
@@ -86,13 +87,14 @@ names(Index_Ret) <- c("created_at", "SPY_ret")
 #Create data frames
 df_Indices_DT <- left_join(Indices, DTrump, by="created_at")
 df_Indices_DT <- na.omit(df_Indices_DT)
-df_Quant <- df_Indices_DT
 ```
-#### Sentiment data 
+#### Data: Semtiments 
 With the data sorted into the two respectable data frames, we can now begin extracting the sentiment scores from our data. This may look daunting, but we will take it step-by-step:
 
 Loading the dataframe for the sentiment:
 ```
+#Data Preparation 2: Sentiment
+# Get raw data again
 tweet_data <- read_delim("C:/Users/PC/Github/Data/TrumpData.csv", 
                       ";", escape_double = FALSE, trim_ws = TRUE)
 tweet_data[6] <- NULL #Remove the 'is_string' variable, as it is not needed.
@@ -112,24 +114,8 @@ DT_Tweets_Clean <- DT_Tweets %>%
   anti_join(stop_words) %>%
   filter(!word %in% c("rt", "t.co", "trump", "realdonaldtrump", "https", "amp"))
  ```
-We can now plot to see which words are most used for Donald Trump:
-```
-windows()
-DT_Tweets_Clean %>%
-  count(word, sort = TRUE) %>%
-  top_n(15) %>%
-  mutate(word = reorder(word, n)) %>%
-  ggplot(aes(x = word, y = n)) +
-  geom_col() +
-  xlab(NULL) +
-  coord_flip() +
-  labs(x = "Count",
-       y = "Unique words",
-       title = "Count of unique words found in 4 year's worth of tweets")
-```
-![TSPic1](https://user-images.githubusercontent.com/69420936/91894474-074da500-ec96-11ea-92b2-9e19df0e22f8.png)
-
-We can now rate the words ,using 'Bing's and QDAP's sentiment dictionaries, in negative and positive interpretations. This step can take a while depending of computational power of your hardware.
+Join by words:
+We rate the words using 'Bing's and QDAP's sentiment dictionaries for negative and positive interpretations. This step can take a while depending on the computational power of your hardware.
 ```
 bing_sentiment <- DT_Tweets_Clean %>%
   inner_join(get_sentiments("bing")) %>%
@@ -139,37 +125,61 @@ bing_sentiment <- DT_Tweets_Clean %>%
   mutate(word = reorder(word, n)) %>%
   group_by(month, sentiment) %>%
   top_n(n = 5, wt = n) %>%
-  #Create a date & sentiment column for sorting
+# Create a date & sentiment column for sorting
   mutate(sent_date = paste0(month, " - ", sentiment)) %>%
   arrange(month, sentiment, n)
-
 bing_sentiment$sent_date <- factor(bing_sentiment$sent_date,
                                    levels = unique(bing_sentiment$sent_date))
 
-sentiment <- analyzeSentiment(enc2native(DT_Tweets$Text))
-#Extract dictionary-based sentiment according to the QDAP dictionary
+sentiment <- analyzeSentiment(enc2native(DT_Tweets$Text)) # Extract dictionary-based sentiment according to the QDAP dictionary
 sentiment2 <- sentiment$SentimentQDAP
-#View sentiment direction (i.e. positive, neutral and negative)
-sentiment3 <- convertToDirection(sentiment$SentimentQDAP)
+sentiment3 <- convertToDirection(sentiment$SentimentQDAP) # View sentiment direction (i.e. positive, neutral and negative)
 
-bing_DT = DT_Tweets_Clean %>% inner_join(get_sentiments("bing")) %>% count(word, sentiment, sort=TRUE)  %>% ungroup()
-windows()
-bing_DT %>% group_by(sentiment) %>% 
-  top_n(10) %>% ungroup() %>% 
-  mutate(word=reorder(word, n)) %>% 
-  ggplot(aes(word, n, fill=sentiment)) +
-  geom_col(show.legend =FALSE) + facet_wrap(~sentiment, scales="free_y") +
-  labs(title="Words by Twitter account @realDonaldTrump", 
-       y = "Contribution to sentiment",
-       x = NULL) + coord_flip() + theme_bw()
+bing_DT = DT_Tweets_Clean %>% 
+          inner_join(get_sentiments("bing")) %>% 
+          count(word, sentiment, sort=TRUE)  %>% ungroup()   
+          
+DT.Over.Time <- bing_DT %>% 
+                count(sentiment) %>% 
+                spread(sentiment, n, fill=0) %>% 
+                mutate(polarity=positive-negative,
+                percent_positive=positive/(positive+negative)*100)
+
+date <- DT_Tweets$created_at # Extract and convert 'date' column
+df <- cbind(DT_Tweets, sentiment2, sentiment3, date) # Create new dataframe with desired columns
+df <- df[complete.cases(df), ] # Remove rows with NA
+
+# Calculate the average of daily sentiment score
+df2 <- df %>% 
+  group_by(date) %>%
+  summarize(meanSentiment = mean(sentiment2, na.rm=TRUE))
+
+# Calculate frequency of sentiments
+freq <- df %>% 
+  group_by(date,sentiment3) %>% 
+  summarise(Freq=n())
+
+# Convert data from long to wide
+freq2 <- freq %>% 
+  spread(key = sentiment3, value = Freq)
+
+# Create Data frame for sentiments
+df_Sentiments <- cbind(df2, freq2)
+df_Sentiments[c(3, 4:5)] <- NULL
+names(df_Sentiments) <- c("Date", "MeanSentiment", "Negative", "Neutral", "Positive")
+NNData_S <- as.data.frame(df_Sentiments)
+
+# Collecting into one to ensure equal amount of data:
+NNData_Q = df_Indices_DT
+NNData_Q = na.exclude(NNData_Q)
+names(NNData_Q) <- c("SPY.Adjusted", "Date", "Retweet_count", "Favorite_count", "Frequency")
+library(dplyr)
+Total_df = left_join(NNData_Q, NNData_S, by="Date")
+Total_df <- na.omit(Total_df)
 ```
-![TSPic2](https://user-images.githubusercontent.com/69420936/91894477-09176880-ec96-11ea-83ca-515f05a09b8e.png)
+![TSPic2](https://user-images.githubusercontent.com/69420936/91894477-09176880-ec96-11ea-83ca-515f05a09b8e.png)![TSPic1](https://user-images.githubusercontent.com/69420936/91894474-074da500-ec96-11ea-92b2-9e19df0e22f8.png)
 
-Using the ggplot-package, we can play around with plots and diagrams of our choice: (codes for the plots are listed in the file "Forecasting code part 1.2; Intro)
-
-![TSPic3](https://user-images.githubusercontent.com/69420936/91894482-0a489580-ec96-11ea-97b9-3aca52b89bcd.png)
-
-#### Quantitative Data
+#### Data: Quantitatives
 
 When working with time series data, we want to make sure it is stationary. We therefore difference the data and normalize it using the simple function:
 ```
@@ -190,7 +200,8 @@ normalize <- function(x) {
 }
 maxmindf_Q <- as.data.frame(lapply(d_NNData_Q, normalize))
 ```
-We then want to split our data into test and training sets. I use 75% of the data for training and 25% for testing.
+### Analysis
+For our analysis, we want to split our data into test and training sets. I use 75% of the data for training and 25% for testing.
 
 ```
 smp_size <- floor(0.75 * nrow(NNN))
@@ -199,7 +210,7 @@ train_Q <- maxmindf_Q[train_ind, ]
 test_Q <- maxmindf_Q[-train_ind, ]
 ```
 
-
+![TSPic3](https://user-images.githubusercontent.com/69420936/91894482-0a489580-ec96-11ea-97b9-3aca52b89bcd.png)
 ### Sources:
 
 - Javier E. David (2019), Trump tweets and market volatility have a 'statistically significant'
