@@ -1,6 +1,7 @@
 # Forecasting The Stock Market Using Tweets (Using OLS, Neural Network & Random Forest)
 ### Motivation: A brief introduction to sentiment analysis.
-(Codes to all plots and diagrams will be present in the file "TTFSMPLOTS.R"
+(Codes to all plots and diagrams will be present in the file "TTFSMPLOTS.R")
+
 Since the election of US president Trump, it has become increasingly evident how social media, and in particular twitter, has become a factor financial markets has to take into account.
 This correlation has not only shifted the models on Wall Street to also incorporate social media but is also evidence of an increasingly integrated and convoluted environment navigate when forecasting. For example; Merrill Lynch started
 modeling their investments after President Donald Trump’s twitter account activity, as seen below. And Bloomberg.com now has a tracker for mentions of the financial markets, also on Donald Trump's twitter account.
@@ -88,7 +89,7 @@ names(Index_Ret) <- c("created_at", "SPY_ret")
 df_Indices_DT <- left_join(Indices, DTrump, by="created_at")
 df_Indices_DT <- na.omit(df_Indices_DT)
 ```
-#### Data: Semtiments 
+#### Data: Sentiments 
 With the data sorted into the two respectable data frames, we can now begin extracting the sentiment scores from our data. This may look daunting, but we will take it step-by-step:
 
 Loading the dataframe for the sentiment:
@@ -177,7 +178,7 @@ library(dplyr)
 Total_df = left_join(NNData_Q, NNData_S, by="Date")
 Total_df <- na.omit(Total_df)
 ```
-![TSPic2](https://user-images.githubusercontent.com/69420936/91894477-09176880-ec96-11ea-83ca-515f05a09b8e.png)![TSPic1](https://user-images.githubusercontent.com/69420936/91894474-074da500-ec96-11ea-92b2-9e19df0e22f8.png)
+![TSPic2](https://user-images.githubusercontent.com/69420936/91894477-09176880-ec96-11ea-83ca-515f05a09b8e.png)
 
 #### Data: Quantitatives
 
@@ -201,6 +202,7 @@ normalize <- function(x) {
 maxmindf_Q <- as.data.frame(lapply(d_NNData_Q, normalize))
 ```
 ### Analysis
+#### Neural Network: Quantitatives
 For our analysis, we want to split our data into test and training sets. I use 75% of the data for training and 25% for testing.
 
 ```
@@ -209,8 +211,65 @@ train_ind <- sample(seq_len(nrow(maxmindf_Q)), size = smp_size)
 train_Q <- maxmindf_Q[train_ind, ]
 test_Q <- maxmindf_Q[-train_ind, ]
 ```
+We can then run our simple neural network using the 'neuralnet' package. There are some rules of thumb one should consider when choosing number of layers and thresholds, however, in this introductioni the reader should already be familiar with the models used.
+```
+set.seed(123)
+NN_Q<- neuralnet(d_SPY~ d_Ret + d_Fav + d_Freq, data=train_Q, hidden=c(3,3), linear.output=FALSE, threshold=0.01, likelihood = TRUE)
+NN_Q$result.matrix
+#plot(NN_Q) #
+```
+To see whether the neural network performed well or not, we can estimate the performance by holding the predictions against our test set:
+```
+temp_test <- subset(test_Q, select = c("d_Ret", "d_Fav", "d_Freq"))
+NN.results <- neuralnet::compute(NN_Q, temp_test)
+results <- data.frame(actual = test_Q$d_SPY, prediction = NN.results$net.result)
+# Accuracy
+SPY.Adjusted = d_NNData_Q$d_SPY
+predicted=results$prediction * abs(diff(range(SPY.Adjusted))) + min(SPY.Adjusted)
+actual=results$actual * abs(diff(range(SPY.Adjusted))) + min(SPY.Adjusted)
+comparison=data.frame(predicted,actual)
+deviation=((actual-predicted)/actual)
+comparison=data.frame(predicted,actual,deviation)
+accuracy=1-abs(mean(deviation))
+accuracy
+```
+The accuracy was only 0.0953. To put in into more statistical terms, I can also calculate the MSE (mean squared error)
+```
+# Predict median value
+pr.nn <- neuralnet::compute(NN_Q, test_Q[1:4])
+pr.nn_ <- pr.nn$net.result*(max(d_NNData_Q$d_SPY)-min(d_NNData_Q$d_SPY))+min(d_NNData_Q$d_SPY)
+test.r <- (test_Q$d_SPY)*(max(d_NNData_Q$d_SPY)-min(d_NNData_Q$d_SPY))+min(d_NNData_Q$d_SPY)
+MSE.nn <- sum((test.r - pr.nn_)^2)/nrow(test_Q)
+# Compare MSE's
+print(paste(MSE.nn))
+```
+The MSE is 8.897. However, machine learning, as especially neural networks are prone to overfit, therefore. I test the robustness of my result using cross validation:
+```
+library(rts)
+library(plyr)
+# Cross-validation NN
+set.seed(450)
+cv.error_Q <- NULL
+k <- 10
+pbar <- create_progress_bar('text')
+pbar$init(k)
+for(i in 1:k){
+  train_ind <- sample(seq_len(nrow(maxmindf_Q)), size = smp_size)
+  train.cv <- maxmindf_Q[train_ind,]
+  test.cv <- maxmindf_Q[-train_ind,]
+  nn <- neuralnet(d_SPY~ d_Ret + d_Fav + d_Freq, data=train.cv,hidden=c(3,3),linear.output=T)
+  pr.nn <- neuralnet::compute(nn,test.cv)
+  pr.nn <- pr.nn$net.result*(max(d_NNData_Q$d_SPY)-min(d_NNData_Q$d_SPY))+min(d_NNData_Q$d_SPY)
+  test.cv.r <- (test.cv$d_SPY)*(max(d_NNData_Q$d_SPY)-min(d_NNData_Q$d_SPY))+min(d_NNData_Q$d_SPY)
+  cv.error_Q[i] <- sum((test.cv.r - pr.nn)^2)/nrow(test.cv)
+  pbar$step()
+}
+mean(cv.error_Q)
+```
+As expected, the mean error increased a lot during the cross validation step. This indicate overfitting of the data.
+```
 
-![TSPic3](https://user-images.githubusercontent.com/69420936/91894482-0a489580-ec96-11ea-97b9-3aca52b89bcd.png)
+### Neural Network: Sentiments
 ### Sources:
 
 - Javier E. David (2019), Trump tweets and market volatility have a 'statistically significant'
