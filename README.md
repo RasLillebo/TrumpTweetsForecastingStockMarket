@@ -333,6 +333,136 @@ for(i in 1:k){
   pbar$step()
 }
 ```
+## Forecasting:
+
+Before we go into forecasting, the parameters of the models should be re-estimated if the following is present:
+- Data should appear stationary (Constant mean and autocovariance over time)
+- The neural network should not fit the data perfectly (Gradient descent should not be a global optiumum = Over fitting the data)
+- Number of hidden layers in neural network should be minimizing the errors, and the number should be within the rule of thumb (See "The Element of statistical learning" for more info on neural networks)
+
+If these criterias are all met, we can start forecasting the S&P500 using our data, and compare the performance using mean errors, AIC and BIC. I will also be comparing the neural network to a simple OLS estimation:
+```
+#Forecasting code: Analysis
+
+set.seed(123)
+#Linear models
+  LM_Quant <- lm(d_NNData_Q$d_SPY~., data=maxmindf_Q)
+  summary(LM_Quant)
+  mean(LM_Quant$residuals^2)
+  
+  LM_Sentiment <- lm(d_NNData_S$d_SPY~., data=maxmindf_S)
+  summary(LM_Sentiment)
+  mean(LM_Sentiment$residuals^2)
+#Prediction
+  LM_Quant_pr <-  predict.lm(LM_Quant, test_Q)
+  LM_Sentiment_pr <-  predict.lm(LM_Sentiment, test_S)
+  NN_Quant_pr <- predict(NN_Q, test_Q)
+  NN_Sentiment_pr <- predict(NN_S, test_S)
+
+#Model comparison
+library(stats)
+  BIC(LM_Quant)
+  AIC(LM_Quant)
+  BIC(LM_Sentiment)
+  AIC(LM_Sentiment)
+  head(NN_S$result.matrix)
+  head(NN_Q$result.matrix)
+
+  #Forecast
+  NN_Quant_pr = as.numeric(NN_Quant_pr)
+  NN_Sentiment_pr = as.numeric(NN_Sentiment_pr)
+  
+library(forecast)
+  set.seed(123)
+  LMFOR_Quant <- forecast(LM_Quant_pr, h=5)
+  LMFOR_Sentiment <- forecast(LM_Sentiment_pr, h=5)
+  NNFor_Quant <- forecast(NN_Quant_pr, h=5)
+  NNFor_Sentiment <- forecast(NN_Sentiment_pr,  h=5)
+
+#Forecast Comparison
+  summary(LMFOR_Quant)
+  summary(LMFOR_Sentiment)
+  summary(NNFor_Sentiment)
+  summary(NNFor_Quant)
+```
+From the performance measures of the forecasting, we can compare and reflect on our models to determine the most optimal one. 
+We can plot the four different models, using the model below:
+```
+#Plot results
+  windows()
+  par(mfrow=c(2, 2))
+  plot(LMFOR_Quant, col="red", asp=-+0.11:0.1, main="LM Quant")
+  plot(LMFOR_Sentiment, col="blue", asp=-+0.11:0.1, main="LM Sentiment")  
+  plot(NNFor_Quant, col="red", asp=-+0.11:0.1, main="NN Quant") 
+  plot(NNFor_Sentiment, col="blue", asp=-+0.11:0.1, main="NN Sentiment")  
+
+#Plot the differenced in a correlation matrix
+  windows()
+  par(mfrow=c(2,1))
+  plot(LMFOR_Quant$residuals, type="l")
+  lines(LMFOR_Sentiment$residuals, type="l", col="red")
+  plot(NNFor_Sentiment$residuals, type="l", col="green")
+  lines(NNFor_Quant$residuals, type="l", col="blue")
+```
+This is one way of estimating and interpreting the models, however, to add another dimension to the analysis. I add another model to the analysis, and compare it to the introductory estimation step in the '**Analysis**' chapter.
+
+## Random Forest
+```
+library(MASS)
+library(randomForest)
+## Random forest
+set.seed(1)
+train_rf1 <- sample(1:nrow(d_NNData_S),nrow(d_NNData_S)*0.75)
+test_rf1 <- d_NNData_S[-train_rf1,"d_SPY"]
+
+# We now use a smaller number of potential predictors
+RF.Sentiment <- randomForest(d_SPY~d_NegS + d_PosS + d_NeuS, data=d_NNData_S, subset=train_rf1,importance=TRUE )
+
+mean(RF.Sentiment$mse)
+(1 - sum((train_rf1-RF.Sentiment$predicted)^2)/sum((train_rf1-mean(train_rf1))^2))
+# List the content of the container
+importance(RF.Sentiment)
+varImpPlot(RF.Sentiment)
+
+#Quant
+set.seed(1)
+train_rf2 <- sample(1:nrow(d_NNData_Q),nrow(d_NNData_Q)*0.75)
+test_rf2 <- d_NNData_Q[-train_rf2,"d_SPY"]
+
+# We now use a smaller number of potential predictors
+RF.Quant <- randomForest(d_SPY~d_Ret + d_Fav + d_Freq, data=d_NNData_Q, subset=train_rf2,importance=TRUE)
+
+mean(RF.Quant$mse)
+(1 - sum((train_rf2-RF.Quant$predicted)^2)/sum((train_rf2-mean(train_rf2))^2))
+# List the content of the container
+importance(RF.Quant)
+varImpPlot(RF.Quant)
+```
+From this code, we can again plot the MSE of our mean squared errors in the following plot:
+```
+windows()
+par(mfrow=c(2,1))
+boxplot(RF.Sentiment$mse,xlab='MSE',col='cyan',
+        border='blue',names='MSE',
+        main='MSE for RF Sentiment',horizontal=TRUE)
+boxplot(RF.Quant$mse,xlab='MSE',col='cyan',
+        border='blue',names='MSE',
+        main='MSE for RF Quant',horizontal=TRUE)
+```
+We can see that the random forest has smaller mean squared errors than the OLS and neural network, making it a better estimation than our forecasted models above. 
+
+### Conclusion
+This code is from a project I did when learning about sentiment analysis and neural networks at Aarhus University. The project had more depth and therefore much more code attached to it. I have not intended posting all code written during the project, which is also why the code my seem a bit messy or missing certain links between the chapters above. 
+
+The project concluded a strong correlation between Trump's negative sentiment and the stock market price, however, this could also be due to the time trend: That despite differencing and (in the full prohect) log-transformation, we still somewhat visible. For the quantitative data, there was a correlation between retweets and favorites and the S&P500, but that was can also be explained by the time-component, as you gain followers over time, and therefore also gather more reteweets and favorites. So it is uncertain whether the variable in itself or the impact of time, was the actual correlative effect. 
+
+The goal of this resporitory is to be the main neural network-project on my account, and I will therefore revisit it often. If you have any contributions, feel free to showcase them. :) 
+## Final remarks
+
+Thank you for reading so far. As stated above, this resporitory is a work in progress, and will therefore be updated continously.
+I hope I made myself understandable grammatically and the code easy to interpret. 
+I'm not a fan of copy-paste codes, as I do not beleive you will learn anything from that, however, I am ready to answer any questions regarding the code above.
+
 
 
 
