@@ -451,7 +451,7 @@ boxplot(RF.Quant$mse,xlab='MSE',col='cyan',
 ```
 We can see that the random forest has smaller mean squared errors than the OLS and neural network, making it a better estimation than our forecasted models above. 
 
-### Conclusion
+## Conclusion
 This code is from a project I did when learning about sentiment analysis and neural networks at Aarhus University. The project had more depth and therefore much more code attached to it. I have not intended posting all code written during the project, which is also why the code my seem a bit messy or missing certain links between the chapters above. 
 
 The project concluded a strong correlation between Trump's negative sentiment and the stock market price, however, this could also be due to the time trend: That despite differencing and (in the full prohect) log-transformation, we still somewhat visible. For the quantitative data, there was a correlation between retweets and favorites and the S&P500, but that was can also be explained by the time-component, as you gain followers over time, and therefore also gather more reteweets and favorites. So it is uncertain whether the variable in itself or the impact of time, was the actual correlative effect. 
