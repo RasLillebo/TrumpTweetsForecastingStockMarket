@@ -1,5 +1,5 @@
 # Forecasting The Stock Market Using Tweets (Using OLS, Neural Network & Random Forest)
-### Motivation: A brief introduction to sentiment analysis.
+### Motivation: A Brief Introduction to Sentiment Analysis.
 (Codes to all plots and diagrams will be present in the file "TTFSMPLOTS.R")
 
 Since the election of US president Trump, it has become increasingly evident how social media, and in particular twitter, has become a factor financial markets has to take into account.
@@ -47,7 +47,7 @@ I will use S&P500 adjusted prices in both datasets, which therefore limits the d
 ## Data Preparation
 First we need to install and load the packages. I like to use 'lapply', but you can just as easily use the simpler 'library()' function, for all the entries in the "Packages" vector defined below:
 ```
-Packages <- c("dplyr", "readr", "zoo",  "SentimentAnalysis", "gridExtra", "tidytext", "tidyr", "ggplot2", "quantmod")
+Packages <- c("dplyr", "readr", "zoo",  "SentimentAnalysis", "gridExtra", "tidytext", "tidyr", "ggplot2", "quantmod", "rts")
 #install.packages(Packages)
 lapply(Packages, library, character.only=TRUE)
 ```
@@ -245,8 +245,6 @@ print(paste(MSE.nn))
 ```
 The MSE is 8.897. However, machine learning, as especially neural networks are prone to overfit, therefore. I test the robustness of my result using cross validation:
 ```
-library(rts)
-library(plyr)
 # Cross-validation NN
 set.seed(450)
 cv.error_Q <- NULL
@@ -267,9 +265,77 @@ for(i in 1:k){
 mean(cv.error_Q)
 ```
 As expected, the mean error increased a lot during the cross validation step. This indicate overfitting of the data.
-```
+We now repeat the analysis for the sentiment data:
 
 ### Neural Network: Sentiments
+Just as we did before, we normalize and differenec the data, and divide the data into test and training sets.
+```
+smp_size <- floor(0.75 * nrow(d_NNData_S))
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+maxmindf_S <- as.data.frame(lapply(d_NNData_S, normalize))
+
+## set the seed to make your partition reproducible
+set.seed(123)
+train_ind <- sample(seq_len(nrow(maxmindf_S)), size = smp_size)
+train_S <- maxmindf_S[train_ind, ]
+test_S <- maxmindf_S[-train_ind, ]
+
+set.seed(500)
+NN_S<- neuralnet(d_SPY~  d_NegS + d_PosS + d_NeuS, data=train_S, hidden=c(3,3), linear.output=FALSE, threshold=0.01, likelihood = TRUE)
+NN_S$result.matrix
+plot(NN_S)
+```
+Furthermore we also re-calculate the MSE, in order to compare the error of the models (The result matrix from the nn-function contains more performance measures you can use for comaparing the models. Personally, I'm more comfortable with the MSE)
+```
+temp_test <- subset(test_S, select = c( "d_NegS", "d_PosS", "d_NeuS"))
+NN.results <- neuralnet::compute(NN_S, temp_test)
+results <- data.frame(actual = test_S$d_SPY, prediction = NN.results$net.result)
+head(results)
+
+#Accuracy
+SP.Adjusted = d_NNData_S$d_SPY
+predicted=results$prediction * abs(diff(range(SP.Adjusted))) + min(SP.Adjusted)
+actual=results$actual * abs(diff(range(SP.Adjusted))) + min(SP.Adjusted)
+comparison=data.frame(predicted,actual)
+deviation=((actual-predicted)/actual)
+comparison=data.frame(predicted,actual,deviation)
+accuracy=1-abs(mean(deviation))
+accuracy
+
+# Predict median value
+pr.nn <- neuralnet::compute(NN_S,test_S)
+pr.nn_ <- pr.nn$net.result*(max(d_NNData_S$d_SPY)-min(d_NNData_S$d_SPY))+min(d_NNData_S$d_SPY)
+test.r <- (test_S$d_SPY)*(max(d_NNData_S$d_SPY)-min(d_NNData_S$d_SPY))+min(d_NNData_S$d_SPY)
+MSE.nn <- sum((test.r - pr.nn_)^2)/nrow(test_S)
+
+# Compare MSE's
+print(paste(MSE.nn))
+```
+The MSE is 505.71. Because we are trying to compare the models on equal terms, I also do a cross-validation for the sentiment based model:
+```
+# Cross-validation NN
+set.seed(450)
+cv.error_S <- NULL
+k <- 10
+pbar <- create_progress_bar('text')
+pbar$init(k)
+for(i in 1:k){
+  train_ind <- sample(seq_len(nrow(maxmindf_S)), size = smp_size)
+  train.cv <- maxmindf_S[train_ind,]
+  test.cv <- maxmindf_S[-train_ind,]
+  nn <- neuralnet(d_SPY~ d_NegS + d_PosS + d_NeuS, data=train.cv,hidden=c(3,3),linear.output=T)
+  pr.nn <- compute(nn,test.cv)
+  pr.nn <- pr.nn$net.result*(max(d_NNData_S$d_SPY)-min(d_NNData_S$d_SPY))+min(d_NNData_S$d_SPY)
+  test.cv.r <- (test.cv$d_SPY)*(max(d_NNData_S$d_SPY)-min(d_NNData_S$d_SPY))+min(d_NNData_S$d_SPY)
+  cv.error_S[i] <- sum((test.cv.r - pr.nn)^2)/nrow(test.cv)
+  pbar$step()
+}
+```
+
+
+
 ### Sources:
 
 - Javier E. David (2019), Trump tweets and market volatility have a 'statistically significant'
