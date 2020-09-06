@@ -1,6 +1,6 @@
 # Forecasting The Stock Market Using Tweets (Using OLS, Neural Network & Random Forest)
 ### Motivation: A Brief Introduction to Sentiment Analysis.
-(Codes to all plots and diagrams will be present in the file "TTFSMPLOTS.R")
+(Codes to all plots and diagrams will be present in the file "TRPLOTS.R")
 
 Since the election of US president Trump, it has become increasingly evident how social media, and in particular twitter, has become a factor financial markets has to take into account.
 This correlation has not only shifted the models on Wall Street to also incorporate social media but is also evidence of an increasingly integrated and convoluted environment navigate when forecasting. For example; Merrill Lynch started
