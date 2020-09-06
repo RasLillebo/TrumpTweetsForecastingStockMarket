@@ -405,6 +405,7 @@ We can plot the four different models, using the model below:
   lines(NNFor_Quant$residuals, type="l", col="blue")
 ```
 This is one way of estimating and interpreting the models, however, to add another dimension to the analysis. I add another model to the analysis, and compare it to the introductory estimation step in the '**Analysis**' chapter.
+![TSPic7](https://user-images.githubusercontent.com/69420936/92327847-d6d28600-f05c-11ea-8aeb-8db539d0f203.png)
 
 ## Random Forest
 ```
@@ -455,6 +456,8 @@ We can see that the random forest has smaller mean squared errors than the OLS a
 This code is from a project I did when learning about sentiment analysis and neural networks at Aarhus University. The project had more depth and therefore much more code attached to it. I have not intended posting all code written during the project, which is also why the code my seem a bit messy or missing certain links between the chapters above. 
 
 The project concluded a strong correlation between Trump's negative sentiment and the stock market price, however, this could also be due to the time trend: That despite differencing and (in the full prohect) log-transformation, we still somewhat visible. For the quantitative data, there was a correlation between retweets and favorites and the S&P500, but that was can also be explained by the time-component, as you gain followers over time, and therefore also gather more reteweets and favorites. So it is uncertain whether the variable in itself or the impact of time, was the actual correlative effect. 
+
+![TSPic6](https://user-images.githubusercontent.com/69420936/92327845-d508c280-f05c-11ea-8a9d-20b2ca458e9a.png)
 
 The goal of this resporitory is to be the main neural network-project on my account, and I will therefore revisit it often. If you have any contributions, feel free to showcase them. :) 
 ## Final remarks
