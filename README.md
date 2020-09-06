@@ -5,7 +5,12 @@
 Since the election of US president Trump, it has become increasingly evident how social media, and in particular twitter, has become a factor financial markets has to take into account.
 This correlation has not only shifted the models on Wall Street to also incorporate social media but is also evidence of an increasingly integrated and convoluted environment navigate when forecasting. For example; Merrill Lynch started
 modeling their investments after President Donald Trump’s twitter account activity, as seen below. And Bloomberg.com now has a tracker for mentions of the financial markets, also on Donald Trump's twitter account.
-### Plot1: 
+## Yahho finance: Trump tweets and market volatility 
+
+(Link: https://finance.yahoo.com/news/trumps-twitter-habit-costs-investors-amid-trade-war-bofa-215054408.html) 
+
+![e65265d0-ce86-11e9-bec7-4c12cc0b60b2](https://user-images.githubusercontent.com/69420936/92327940-860f5d00-f05d-11ea-9c0c-e7a54ce12436.png)
+
 
 Such initiatives shifted more focus onto the existing development in text mining and sentiment analysis, that has seen exponential growth in recent years. Topics like these is where machine learning is said to outperform, and with prominent figures in the
 financial sector already at it, it is reasonable to believe the research is well founded. 
