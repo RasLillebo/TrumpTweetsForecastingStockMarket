@@ -223,6 +223,8 @@ NN_Q<- neuralnet(d_SPY~ d_Ret + d_Fav + d_Freq, data=train_Q, hidden=c(3,3), lin
 NN_Q$result.matrix
 #plot(NN_Q) #
 ```
+![TSPic5](https://user-images.githubusercontent.com/69420936/92327986-dc7c9b80-f05d-11ea-9985-dfdbc2f6c289.png)
+
 To see whether the neural network performed well or not, we can estimate the performance by holding the predictions against our test set:
 ```
 temp_test <- subset(test_Q, select = c("d_Ret", "d_Fav", "d_Freq"))
