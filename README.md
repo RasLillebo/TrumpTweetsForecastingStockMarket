@@ -61,7 +61,7 @@ Load the data into the directory and begin formatting the columns. I prefer to u
 We then aggregate the data into daily frequency, which will aid us in the later analysis:
 ```
 #Data preparation:(Data: Text, created_at, retweet_count, favorite_count, is_retweet, id_str)
-DT_Tweets <- read_delim("C:/Users/PC/OneDrive/Uni/Uni 8. semester/Economic Forecasting/TrumpData.csv", 
+DT_Tweets <- read_delim("C:/Users/PC/OneDrive/Forecasting/TrumpData.csv", 
                         ";", escape_double = FALSE, trim_ws = TRUE)
 TTweets1 <- TTweets2 <- DT_Tweets
 TTweets1 = TTweets1 %>% mutate(created_at <-  as.Date(TTweets1$created_at, format="%m-%d-%Y"),
@@ -101,7 +101,7 @@ Loading the dataframe for the sentiment:
 ```
 #Data Preparation 2: Sentiment
 # Get raw data again
-tweet_data <- read_delim("C:/Users/PC/Github/Data/TrumpData.csv", 
+tweet_data <- read_delim("C:/Users/Data/TrumpData.csv", 
                       ";", escape_double = FALSE, trim_ws = TRUE)
 tweet_data[6] <- NULL #Remove the 'is_string' variable, as it is not needed.
 tweet_data$created_at = as.Date(tweet_data$created_at, format="%m-%d-%Y")  #Format date column
